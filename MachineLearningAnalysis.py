@@ -1,7 +1,6 @@
 import argparse
 import os.path as osp
 import os
-import h5py
 import numpy as np
 from sklearn.model_selection import cross_val_predict
 from sklearn.svm import SVC
@@ -16,13 +15,16 @@ from sklearn.metrics import accuracy_score
 
 
 def import_files(path):
-    f = h5py.File(path, 'r')
-    file = f['Data']
-    group_keys = list(file.keys())
     data = list()
-    for key in group_keys:
-        dataset_i = list(file[group_keys[0]])
-        for d in dataset_i:
+    if not osp.exists(path):
+        print "Error. The file does not exist"
+        return
+    with open(path, "r") as f:
+        for line in f:
+            ll = line.strip().split(",")
+            d = np.zeros(len(ll))
+            for i in range(0, len(ll)):
+                d[i] = float(ll[i])
             data.append(d)
     return data
 
@@ -33,21 +35,24 @@ def transform_data_format(data):
     x = np.zeros((num_sample, num_features))
     y = np.zeros(num_sample)
     for i in xrange(0, num_sample):
-        x[i] = data[i,0:-1]
-        y[i] = data[i,-1]
+        x[i] = data[i][0:-1]
+        y[i] = data[i][-1]
     return x,y
 
 
 def save_log(path, classifier, accuracy, precision, recall, f1):
     if not osp.exists(path):
         os.makedirs(path)
-    filename = classifier+"_log.csv"
+    filename = classifier+"_log.txt"
     header = ["Accuracy", "Precision", "Recall", "F1"]
     scores = [accuracy, precision, recall, f1]
     if not osp.exists(osp.join(path, filename)):
         with open(osp.join(path, filename), "w") as f:
-            f.write(",".join(header) + "\n")
-            f.write(",".join(scores)+"\n")
+            for (metric, value) in zip(header, scores):
+                f.write(metric)
+                f.write(": ")
+                f.write(str(value))
+                f.write("\n")
 
 
 class Classifiers:
@@ -71,8 +76,8 @@ class Classifiers:
         preds = cross_val_predict(self._LR, self._x, self._y)
         return preds
 
-    def nb_predict(self, priors=None):
-        self._NB = GaussianNB(priors=priors)
+    def nb_predict(self):
+        self._NB = GaussianNB()
         preds = cross_val_predict(self._NB, self._x, self._y)
         return preds
 
@@ -96,32 +101,31 @@ class Classifiers:
         accuracy = accuracy_score(self._y, preds)
         precision = precision_score(self._y, preds)
         recall = recall_score(self._y, preds)
-        f1 = 2 * (precision * recall) / (precision + recall)
+        f1 = 2 * (precision * recall) / (precision + recall + 1e-6)
         return accuracy, precision, recall, f1
 
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_path", default="./data/data.h5", type=str, help="path to the input data")
-    parser.add_argument("--out_path", default="./results", type=str, help="path to the results")
-    parser.add_argument("--classifier", default="lr", type=str,\
+    parser.add_argument("--input_path", default="./data/test.csv", type=str, help="path to the input data")
+    parser.add_argument("--output_path", default="./results", type=str, help="path to the results")
+    parser.add_argument("--classifier", default="knn", type=str,\
                         help="classifier type. it must be one of 'svm', 'lr', 'nb', 'mlp', 'knn'")
     parser.add_argument("--num_fold", default=10, type=int,\
                         help="number of folds. determine the splitting strategy")
     parser.add_argument("--C", default=1.0, type=float, help="penalty parameter")
     parser.add_argument("--kernel", default="rbf", type=str,\
-                        help="kernel type. it must be one of ‘linear’, ‘poly’, ‘rbf’, ‘sigmoid’, ‘precomputed’.\
-                         only used when classifier is svm ")
+                        help="kernel type. it must be one of 'linear', 'poly', 'rbf', 'sigmoid', 'precomputed'. only used when classifier is svm ")
     parser.add_argument("--gamma", default=0.3, type=float, \
-                        help="Kernel coefficient for ‘rbf’, ‘poly’ and ‘sigmoid’. only used when classifer is svm")
-    parser.add_argument("--penalty", default="l1", type=str, help=" ‘l1’ or ‘l2’. only used when classifier is lr")
+                        help="Kernel coefficient for 'rbf', 'poly' and 'sigmoid'. only used when classifer is svm")
+    parser.add_argument("--penalty", default="l2", type=str, help=" 'l1' or 'l2'. only used when classifier is lr")
     parser.add_argument("--hidden_layer_sizes", default=100, type=int, help="only used when classifier is mlp")
     parser.add_argument("--activation", default="relu", type=str, \
-                        help="‘identity’, ‘logistic’, ‘tanh’, ‘relu’. only used when classifier is mlp")
+                        help="'identity', 'logistic', 'tanh', 'relu'. only used when classifier is mlp")
     parser.add_argument("--solver", default="adam", type=str,\
-                        help="‘lbfgs’, ‘sgd’, ‘adam’. only used when classifier is mlp and learning rate is adaptive")
+                        help="'lbfgs', 'sgd', 'adam'. only used when classifier is mlp and learning rate is adaptive")
     parser.add_argument("--learning_rate", default='constant', type=str,\
-                        help="‘constant’, ‘invscaling’, ‘adaptive’. only used when classifier is mlp")
+                        help="'constant', 'invscaling', 'adaptive'. only used when classifier is mlp")
     parser.add_argument("--learning_rate_init", default=0.001, type=float,\
                         help="the initial learning rate used. only used when classifier is mlp")
     parser.add_argument("--alpha", default=0.0001, type=float,\
@@ -132,18 +136,52 @@ def main():
     parser.add_argument("--power_t", default=0.5, type=float, \
                         help="the exponent for inverse scaling learning rate. only used when \
                         classifier is mlp, learning rate is invscaling and solver is sgd.")
-    parser.add_argument("beta_1", default=0.9, type=float,\
+    parser.add_argument("--beta_1", default=0.9, type=float,\
                         help="between 0 and 1. only used when solver is adam")
-    parser.add_argument("beta_2", default=0.999, type=float,\
+    parser.add_argument("--beta_2", default=0.999, type=float,\
                         help="between 0 and 1. only used when solver is adam")
     parser.add_argument("--epsilon", default= 1e-8, type=float,\
                         help="only used when solver is adam")
+    parser.add_argument("--n_neighbors", default=5, type=int, \
+                             help="number of neighbors. only used when classifier is knn")
     args = parser.parse_args()
 
     data = import_files(args.input_path)
     x,y = transform_data_format(data)
-    cc = Classifiers()
+    cc = Classifiers(x,y,args.num_fold)
+    if args.classifier == "lr":
+        preds = cc.lr_predict(args.penalty, args.C)
+        accuracy, precision, recall, f1 = cc.evaluation(preds)
+        save_log(args.output_path, "lr", accuracy, precision, recall, f1)
 
+    elif args.classifier == "svm":
+        preds = cc.svm_predict(args.C, args.kernel, args.gamma)
+        accuracy, precision, recall, f1 = cc.evaluation(preds)
+        save_log(args.output_path, "svm", accuracy, precision, recall, f1)
+
+    elif args.classifier == "nb":
+        preds = cc.nb_predict()
+        accuracy, precision, recall, f1 = cc.evaluation(preds)
+        save_log(args.output_path, "nb", accuracy, precision, recall, f1)
+
+    elif args.classifier == "mlp":
+        preds = cc.mlp_predict(args.hidden_layer_sizes, args.activation, args.solver, args.alpha, \
+                       args.learning_rate, args.power_t, args.momentum, args.beta_1, args.beta_2, args.epsilon)
+        accuracy, precision, recall, f1 = cc.evaluation(preds)
+        save_log(args.output_path, "mlp", accuracy, precision, recall, f1)
+
+    elif args.classifier == "knn":
+        preds = cc.knn_predict(args.n_neighbors)
+        accuracy, precision, recall, f1 = cc.evaluation(preds)
+        save_log(args.output_path, "knn", accuracy, precision, recall, f1)
+
+    else:
+        print "Error. No such classifier."
+        return
+
+
+if __name__ == '__main__':
+    main()
 
 
 
