@@ -1,0 +1,26 @@
+#Datasets description
+
+## seb_1s_class
+Whole converted data set
+Data averaged into 1 second based
+Tagged by whole class period
+
+## seb_1s_class_begin
+Whole converted data set
+Data averaged into 1 second based
+Tagged by period 10 minutes before class begin and 5 minuetes after class begin
+
+## seb_1s_class_begin_less
+Partial dataset, hours that have no single tag (1) are removed 
+Data averaged into 1 second based
+Tagged by period 10 minutes before class begin and 5 minuetes after class begin
+
+## seb_1min_class
+Whole converted data set
+Data averaged into 1 minute based
+Tagged by whole class period
+
+## seb_1min_class_begin
+Whole converted data set
+Data averaged into 1 minute based
+Tagged by period 10 minutes before class begin and 5 minuetes after class begin
