@@ -24,3 +24,9 @@ Tagged by whole class period
 Whole converted data set
 Data averaged into 1 minute based
 Tagged by period 10 minutes before class begin and 5 minuetes after class begin
+
+## seb_1s_class_t
+Whole converted data set
+Data averaged into 1 second based
+Tagged by whole class period
+Unix timestamp added on col 4
